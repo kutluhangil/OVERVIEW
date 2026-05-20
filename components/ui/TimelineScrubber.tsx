@@ -1,22 +1,21 @@
 'use client';
 
-import React, { useMemo, useCallback, useRef, useEffect } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Play, Pause, Rocket } from 'lucide-react';
 import { useTimeStore } from '@/store/useTimeStore';
 import { useGlobeStore } from '@/store/useGlobeStore';
+import { useDataStore } from '@/store/useDataStore';
+import { toggleAutoTour } from '@/lib/tour/auto-tour';
 import { Button } from './primitives/Button';
 import { Tooltip } from './primitives/Tooltip';
 import { cn } from '@/lib/utils/cn';
-import type { GeoEvent } from '@/lib/types';
 
 type ReplaySpeed = 1 | 5 | 20 | 60;
 const SPEEDS: ReplaySpeed[] = [1, 5, 20, 60];
 
-interface TimelineScrubberProps {
-  events?: GeoEvent[];
-}
-
-export function TimelineScrubber({ events = [] }: TimelineScrubberProps) {
+export function TimelineScrubber() {
+  const storeEvents = useDataStore((s) => s.events);
+  const events = useMemo(() => Object.values(storeEvents).flat(), [storeEvents]);
   const mode       = useTimeStore((s) => s.mode);
   const scrubTime  = useTimeStore((s) => s.scrubTime);
   const speed      = useTimeStore((s) => s.speed);
@@ -28,10 +27,6 @@ export function TimelineScrubber({ events = [] }: TimelineScrubberProps) {
   const goLive       = useTimeStore((s) => s.goLive);
 
   const isAutoTour = useGlobeStore((s) => s.isAutoTour);
-  const setAutoTour = useGlobeStore((s) => s.setAutoTour);
-
-  const animFrameRef = useRef<number | null>(null);
-  const lastTickRef  = useRef<number>(Date.now());
 
   const now = Date.now();
   const windowMs = windowHours * 60 * 60 * 1000;
@@ -43,37 +38,6 @@ export function TimelineScrubber({ events = [] }: TimelineScrubberProps) {
     if (mode === 'live') return 1;
     return Math.max(0, Math.min(1, (scrubTime - rangeStart) / windowMs));
   }, [mode, scrubTime, rangeStart, windowMs]);
-
-  // Replay animation
-  useEffect(() => {
-    if (!isPlaying || mode === 'live') {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      return;
-    }
-
-    const tick = () => {
-      const now2 = Date.now();
-      const dt = now2 - lastTickRef.current;
-      lastTickRef.current = now2;
-
-      const advance = dt * speed;
-      const nextTime = scrubTime + advance;
-
-      if (nextTime >= Date.now()) {
-        goLive();
-      } else {
-        setScrubTime(nextTime);
-      }
-
-      animFrameRef.current = requestAnimationFrame(tick);
-    };
-
-    lastTickRef.current = Date.now();
-    animFrameRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [isPlaying, mode, speed, scrubTime, goLive, setScrubTime]);
 
   const handleScrub = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,7 +191,7 @@ export function TimelineScrubber({ events = [] }: TimelineScrubberProps) {
           variant="icon"
           size="md"
           active={isAutoTour}
-          onClick={() => setAutoTour(!isAutoTour)}
+          onClick={toggleAutoTour}
           aria-label="Auto-tour"
           className={isAutoTour ? 'text-accent animate-pulse-glow' : ''}
         >

@@ -2,15 +2,16 @@
 
 import { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { ACESFilmicToneMapping, Color } from 'three';
 
-import { Earth }      from './Earth';
-import { Clouds }     from './Clouds';
-import { Atmosphere } from './Atmosphere';
-import { StarField }  from './StarField';
-import { Sun }        from './Sun';
+import { Earth }           from './Earth';
+import { Clouds }          from './Clouds';
+import { Atmosphere }      from './Atmosphere';
+import { StarField }       from './StarField';
+import { Sun }             from './Sun';
+import { CameraRig }       from './CameraRig';
+import { DataLayersGroup } from './DataLayersGroup';
 
 // ── Loading fallback ──────────────────────────────────────────────────────────
 
@@ -64,20 +65,11 @@ export function GlobeCanvas({ minimal: _minimal }: GlobeCanvasProps = {}) {
         <Earth />
         <Clouds />
         <Atmosphere />
+        {!_minimal && <DataLayersGroup />}
       </Suspense>
 
-      {/* ── Camera controls ── */}
-      <OrbitControls
-        enableDamping
-        dampingFactor={0.07}
-        rotateSpeed={0.5}
-        zoomSpeed={0.8}
-        panSpeed={0.5}
-        minDistance={1.3}
-        maxDistance={6}
-        enablePan={false}
-        makeDefault
-      />
+      {/* ── Camera rig (includes OrbitControls + fly-to + keyboard) ── */}
+      <CameraRig />
 
       {/* ── Post-processing ── */}
       <EffectComposer>

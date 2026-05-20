@@ -99,7 +99,7 @@ function featureToArcEvents(
 
 export async function fetchCables(): Promise<GeoEvent[]> {
   try {
-    const response = await fetch('/content/cables.geojson', {
+    const response = await fetch('/cables.geojson', {
       headers: { 'Accept': 'application/json' },
     });
 

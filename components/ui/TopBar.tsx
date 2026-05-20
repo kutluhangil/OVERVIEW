@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Volume2, VolumeX, Settings, Share2 } from 'lucide-react';
 import { useLayersStore } from '@/store/useLayersStore';
 import { useUIStore } from '@/store/useUIStore';
+import { useTimeStore } from '@/store/useTimeStore';
+import { resumeAudio } from '@/lib/audio/sonify';
 import { Button } from './primitives/Button';
 import { Tooltip } from './primitives/Tooltip';
 import { cn } from '@/lib/utils/cn';
@@ -16,6 +18,12 @@ export function TopBar() {
     setSettingsOpen,
     setShareOpen,
   } = useUIStore();
+
+  const handleSoundToggle = useCallback(() => {
+    const next = !isSoundEnabled;
+    setSoundEnabled(next);
+    if (next) resumeAudio();
+  }, [isSoundEnabled, setSoundEnabled]);
 
   const activeLayerCount = useMemo(
     () => layers.filter((l) => l.enabled).length,
@@ -76,7 +84,7 @@ export function TopBar() {
         </Tooltip>
       </div>
 
-      {/* Center: Live status indicator */}
+      {/* Center: Live / replay status indicator */}
       <LiveIndicator />
 
       {/* Right: Actions */}
@@ -86,7 +94,7 @@ export function TopBar() {
             variant="icon"
             size="md"
             active={isSoundEnabled}
-            onClick={() => setSoundEnabled(!isSoundEnabled)}
+            onClick={handleSoundToggle}
             aria-label={isSoundEnabled ? 'Mute sound' : 'Enable sound'}
           >
             {isSoundEnabled ? (
@@ -176,14 +184,39 @@ function LogoMark() {
 
 /* ─── LiveIndicator ───────────────────────────────────────────────────── */
 function LiveIndicator() {
+  const mode = useTimeStore((s) => s.mode);
+  const isLive = mode === 'live';
+
   return (
-    <div className="flex items-center gap-2 px-3 py-1 rounded-full border border-[#34d399]/20 bg-[#34d399]/5">
+    <div
+      className={cn(
+        'flex items-center gap-2 px-3 py-1 rounded-full border transition-colors duration-300',
+        isLive
+          ? 'border-[#34d399]/20 bg-[#34d399]/5'
+          : 'border-[#f59e0b]/20 bg-[#f59e0b]/5'
+      )}
+    >
       <span className="relative flex h-2 w-2">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#34d399] opacity-50" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-[#34d399]" />
+        <span
+          className={cn(
+            'animate-ping absolute inline-flex h-full w-full rounded-full opacity-50',
+            isLive ? 'bg-[#34d399]' : 'bg-[#f59e0b]'
+          )}
+        />
+        <span
+          className={cn(
+            'relative inline-flex h-2 w-2 rounded-full',
+            isLive ? 'bg-[#34d399]' : 'bg-[#f59e0b]'
+          )}
+        />
       </span>
-      <span className="text-xs font-medium text-[#34d399] tracking-widest uppercase mono-data">
-        Live
+      <span
+        className={cn(
+          'text-xs font-medium tracking-widest uppercase mono-data',
+          isLive ? 'text-[#34d399]' : 'text-[#f59e0b]'
+        )}
+      >
+        {isLive ? 'Live' : 'Replay'}
       </span>
     </div>
   );

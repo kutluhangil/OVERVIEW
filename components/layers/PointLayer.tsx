@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, useMemo, useCallback } from 'react';
+import { useRef, useMemo, useCallback, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import {
-  InstancedMesh, Object3D, Color, Vector3, Raycaster,
+  InstancedMesh, Object3D, Color,
   AdditiveBlending, MeshBasicMaterial, SphereGeometry
 } from 'three';
 import { GeoEvent } from '@/lib/types';
@@ -19,8 +19,6 @@ interface PointLayerProps {
   visible?: boolean;
 }
 
-const dummy = new Object3D();
-
 export function PointLayer({
   events,
   color,
@@ -29,6 +27,7 @@ export function PointLayer({
   visible = true,
 }: PointLayerProps) {
   const meshRef = useRef<InstancedMesh>(null);
+  const dummyRef = useRef(new Object3D());
   const { raycaster, camera } = useThree();
   const setSelectedEvent = useUIStore((s) => s.setSelectedEvent);
   const setSelectedEventId = useGlobeStore((s) => s.setSelectedEventId);
@@ -50,17 +49,23 @@ export function PointLayer({
     [baseColor, opacity]
   );
 
+  // Dispose geometry and material on unmount or when they change
+  useEffect(() => () => { geometry.dispose(); }, [geometry]);
+  useEffect(() => () => { material.dispose(); }, [material]);
+
   useFrame(() => {
     if (!meshRef.current) return;
     const mesh = meshRef.current;
 
+    const dummy = dummyRef.current;
     filteredEvents.forEach((event, i) => {
       const pos = latLngToVector3(event.lat, event.lng, 1.005);
       dummy.position.copy(pos);
       // Scale by magnitude
       const scale = event.magnitude ? Math.max(0.5, Math.min(3, event.magnitude * 0.4)) : 1;
       dummy.scale.setScalar(scale * pointSize);
-      dummy.lookAt(0, 0, 0);
+      // Orient outward from globe surface (look away from center)
+      dummy.lookAt(pos.clone().multiplyScalar(3));
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
 

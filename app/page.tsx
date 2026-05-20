@@ -14,6 +14,7 @@ import { useDataPoller } from '@/lib/data/poller';
 import { useHistoryBuffer } from '@/lib/data/history-buffer';
 import { useReplayEngine } from '@/lib/data/replay-engine';
 import { useKeyboardShortcuts } from '@/lib/hooks/useKeyboardShortcuts';
+import { triggerNarration } from '@/lib/ai/narrate';
 
 const GlobeCanvas = dynamic(
   () => import('@/components/globe/GlobeCanvas').then((m) => m.GlobeCanvas),
@@ -36,6 +37,13 @@ export default function OverviewPage() {
   useHistoryBuffer();
   useReplayEngine();
   useKeyboardShortcuts();
+
+  // Trigger AI narration on mount and every 30s
+  useEffect(() => {
+    triggerNarration();
+    const id = setInterval(triggerNarration, 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <main className="fixed inset-0 overflow-hidden">

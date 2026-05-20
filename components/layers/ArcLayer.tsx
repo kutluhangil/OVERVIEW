@@ -10,6 +10,7 @@ import {
   Line,
 } from 'three';
 import { greatCirclePoints } from '@/lib/geo/arc';
+import { latLngToVector3 } from '@/lib/geo/coordinates';
 import { GeoEvent } from '@/lib/types';
 
 interface ArcLayerProps {
@@ -22,14 +23,25 @@ interface ArcLayerProps {
 export function ArcLayer({ events, color, opacity = 0.6, visible = true }: ArcLayerProps) {
   const lines = useMemo(() => {
     return events.slice(0, 200).map((event) => {
-      const route = event.meta?.route as [number, number][] | undefined;
-      if (!route || route.length < 2) return null;
+      // cables.ts stores the full coordinate array as meta.coordinates ([lng, lat] GeoJSON order)
+      const coords = event.meta?.coordinates as number[][] | undefined;
+      const hasFullPath = coords && coords.length >= 2;
 
-      const points = greatCirclePoints(
-        route[0][1], route[0][0],
-        route[route.length - 1][1], route[route.length - 1][0],
-        60, 1.001
-      );
+      const points = hasFullPath
+        ? coords.map((c) => latLngToVector3(
+            typeof c[1] === 'number' ? c[1] : 0,
+            typeof c[0] === 'number' ? c[0] : 0,
+            1.001
+          ))
+        : (() => {
+            const startLat = typeof event.meta?.startLat === 'number' ? event.meta.startLat : event.lat;
+            const startLng = typeof event.meta?.startLng === 'number' ? event.meta.startLng : event.lng;
+            const endLat   = typeof event.meta?.endLat   === 'number' ? event.meta.endLat   : event.lat;
+            const endLng   = typeof event.meta?.endLng   === 'number' ? event.meta.endLng   : event.lng;
+            return greatCirclePoints(startLat, startLng, endLat, endLng, 60, 1.001);
+          })();
+
+      if (points.length < 2) return null;
 
       const positions = new Float32Array(points.length * 3);
       points.forEach((p, i) => {
