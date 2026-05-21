@@ -13,6 +13,13 @@ import { cn } from '@/lib/utils/cn';
 type ReplaySpeed = 1 | 5 | 20 | 60;
 const SPEEDS: ReplaySpeed[] = [1, 5, 20, 60];
 
+const WINDOWS: { hours: number; label: string }[] = [
+  { hours: 1,   label: '1h' },
+  { hours: 6,   label: '6h' },
+  { hours: 24,  label: '24h' },
+  { hours: 168, label: '7d' },
+];
+
 export function TimelineScrubber() {
   const storeEvents = useDataStore((s) => s.events);
   const events = useMemo(() => Object.values(storeEvents).flat(), [storeEvents]);
@@ -21,10 +28,11 @@ export function TimelineScrubber() {
   const speed      = useTimeStore((s) => s.speed);
   const isPlaying  = useTimeStore((s) => s.isPlaying);
   const windowHours = useTimeStore((s) => s.windowHours);
-  const setScrubTime = useTimeStore((s) => s.setScrubTime);
-  const setSpeed     = useTimeStore((s) => s.setSpeed);
-  const setPlaying   = useTimeStore((s) => s.setPlaying);
-  const goLive       = useTimeStore((s) => s.goLive);
+  const setScrubTime   = useTimeStore((s) => s.setScrubTime);
+  const setSpeed       = useTimeStore((s) => s.setSpeed);
+  const setPlaying     = useTimeStore((s) => s.setPlaying);
+  const setWindowHours = useTimeStore((s) => s.setWindowHours);
+  const goLive         = useTimeStore((s) => s.goLive);
 
   const isAutoTour = useGlobeStore((s) => s.isAutoTour);
 
@@ -119,10 +127,28 @@ export function TimelineScrubber() {
       {/* Separator */}
       <div className="h-4 w-px bg-[#1a2436] flex-shrink-0" />
 
-      {/* Time start label */}
-      <span className="mono-data text-[10px] text-[#5b6b82] flex-shrink-0 whitespace-nowrap">
-        −{windowHours}h
-      </span>
+      {/* Window size selector */}
+      <div className="flex items-center gap-0.5 flex-shrink-0">
+        {WINDOWS.map((w) => (
+          <button
+            key={w.hours}
+            onClick={() => setWindowHours(w.hours)}
+            className={cn(
+              'h-6 px-1.5 rounded text-[10px] mono-data font-medium',
+              'transition-all duration-100',
+              windowHours === w.hours
+                ? 'bg-accent/20 text-accent border border-accent/40'
+                : 'text-[#5b6b82] hover:text-[#94a3b8] border border-transparent'
+            )}
+            aria-label={`Show last ${w.label}`}
+            aria-pressed={windowHours === w.hours}
+          >
+            {w.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="h-4 w-px bg-[#1a2436] flex-shrink-0" />
 
       {/* Scrubber + density viz */}
       <div className="flex-1 relative flex flex-col justify-center gap-1 min-w-0">
@@ -154,7 +180,7 @@ export function TimelineScrubber() {
       </div>
 
       {/* Time end / NOW */}
-      <span className="mono-data text-[10px] text-[#5b6b82] flex-shrink-0">
+      <span className="mono-data text-[10px] text-[#5b6b82] flex-shrink-0 whitespace-nowrap">
         NOW
       </span>
 

@@ -10,6 +10,7 @@ import { fetchFlights } from './sources/flights';
 import { fetchFires } from './sources/fires';
 import { fetchAurora } from './sources/aurora';
 import { fetchCables } from './sources/cables';
+import { fetchVolcanoes } from './sources/volcanoes';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,11 +72,14 @@ async function fetchLayer(layer: LayerType): Promise<void> {
       replaceEvents('cable', events);
       break;
     }
+    case 'volcano': {
+      const events = fetchVolcanoes();
+      replaceEvents('volcano', events);
+      break;
+    }
     case 'ship':
-    case 'volcano':
     case 'custom':
-      // Ships: handled by client-side WebSocket hook
-      // Volcano/custom: no dedicated poller
+      // Ships: handled by client-side WebSocket (useAISStream hook)
       break;
   }
 }
@@ -172,8 +176,8 @@ export function useDataPoller(): PollerState {
       const config = layers.find((l) => l.type === layer);
       const pollInterval = config?.pollInterval;
 
-      // Cables are static — fetch once, no polling
-      if (layer === 'cable') {
+      // Cables and volcanoes are static — fetch once, no polling
+      if (layer === 'cable' || layer === 'volcano') {
         activeRef.current.add(layer);
         retryRef.current.set(layer, { count: 0, nextRetryAt: 0 });
         void runFetch(layer);

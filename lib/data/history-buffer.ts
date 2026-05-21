@@ -3,13 +3,16 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { GeoEvent } from '@/lib/types';
 import { normalizeEarthquakes } from '@/lib/data/normalize';
+import { useTimeStore } from '@/store/useTimeStore';
+import { useDataStore } from '@/store/useDataStore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MAX_AGE_MS = 25 * 60 * 60 * 1000; // 25h (prune events older than this)
 const PRUNE_INTERVAL_MS = 10 * 60 * 1000; // prune every 10 minutes
 const USGS_ALL_DAY_URL =
   'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson';
+const USGS_ALL_WEEK_URL =
+  'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,9 +35,10 @@ export interface HistoryBuffer {
  * Auto-prunes events older than 25h.
  */
 export function useHistoryBuffer(): HistoryBuffer {
-  // Map<id, GeoEvent> for O(1) dedup
   const bufferRef = useRef<Map<string, GeoEvent>>(new Map());
   const pruneTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const loadedWindowRef = useRef<number>(0); // tracks which windowHours dataset is loaded
+  const windowHours = useTimeStore((s) => s.windowHours);
 
   // ── Add events (deduplicates by id) ────────────────────────────────────────
   const addEvents = useCallback((events: GeoEvent[]) => {
@@ -63,54 +67,48 @@ export function useHistoryBuffer(): HistoryBuffer {
 
   // ── Prune old events ────────────────────────────────────────────────────────
   const pruneOldEvents = useCallback(() => {
-    const cutoff = Date.now() - MAX_AGE_MS;
+    const maxAgeMs = (loadedWindowRef.current + 1) * 60 * 60 * 1000;
+    const cutoff = Date.now() - maxAgeMs;
     const buf = bufferRef.current;
     for (const [id, event] of buf.entries()) {
-      if (event.timestamp < cutoff) {
+      if (event.timestamp > 0 && event.timestamp < cutoff) {
         buf.delete(id);
       }
     }
   }, []);
 
-  // ── Load initial 24h earthquake history from USGS ──────────────────────────
+  // ── Load earthquake history — re-runs when windowHours changes ─────────────
   useEffect(() => {
-    let cancelled = false;
+    // Don't reload if same window is already loaded
+    if (loadedWindowRef.current === windowHours) return;
 
-    async function loadInitialHistory() {
+    let cancelled = false;
+    const url = windowHours >= 168 ? USGS_ALL_WEEK_URL : USGS_ALL_DAY_URL;
+
+    async function loadHistory() {
       try {
-        const response = await fetch(USGS_ALL_DAY_URL, {
+        const response = await fetch(url, {
           headers: { 'Accept': 'application/json' },
         });
-
-        if (!response.ok) {
-          console.warn(
-            `[history-buffer] USGS all_day.geojson returned ${response.status}`
-          );
-          return;
-        }
+        if (!response.ok) return;
 
         const geojson: unknown = await response.json();
         const events = normalizeEarthquakes(geojson);
 
         if (!cancelled) {
           addEvents(events);
-          console.info(
-            `[history-buffer] Loaded ${events.length} earthquake events into 24h history`
-          );
+          // Also push into the data store so existing layers update immediately
+          useDataStore.getState().addEvents('earthquake', events);
+          loadedWindowRef.current = windowHours;
         }
-      } catch (error) {
-        if (!cancelled) {
-          console.error('[history-buffer] Failed to load initial history:', error);
-        }
+      } catch {
+        // silently fail — live data still flows via poller
       }
     }
 
-    void loadInitialHistory();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [addEvents]);
+    void loadHistory();
+    return () => { cancelled = true; };
+  }, [windowHours, addEvents]);
 
   // ── Start auto-prune interval ───────────────────────────────────────────────
   useEffect(() => {

@@ -79,16 +79,29 @@ export function PointLayer({
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   });
 
-  const handleClick = useCallback(() => {
+  const handleClick = useCallback((e: { nativeEvent?: Event }) => {
     if (!meshRef.current) return;
+
+    // Widen hit threshold for touch events (finger is less precise than cursor)
+    const isTouch = e.nativeEvent instanceof TouchEvent;
+    const prevThreshold = (raycaster.params.Points as { threshold?: number })?.threshold;
+    if (isTouch && raycaster.params.Points) {
+      (raycaster.params.Points as { threshold: number }).threshold = 0.05;
+    }
+
     const hits = raycaster.intersectObject(meshRef.current);
+
+    // Restore threshold
+    if (isTouch && raycaster.params.Points && prevThreshold !== undefined) {
+      (raycaster.params.Points as { threshold: number }).threshold = prevThreshold;
+    }
+
     if (hits.length > 0) {
       const idx = hits[0].instanceId;
       if (idx !== undefined && filteredEvents[idx]) {
         const event = filteredEvents[idx];
         setSelectedEvent(event);
         setSelectedEventId(event.id);
-        // Fly to event
         const pos = latLngToVector3(event.lat, event.lng, 1);
         const flyPos = pos.clone().normalize().multiplyScalar(2.2);
         useGlobeStore.getState().setCameraTarget(flyPos);

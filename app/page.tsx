@@ -14,6 +14,9 @@ import { useDataPoller } from '@/lib/data/poller';
 import { useHistoryBuffer } from '@/lib/data/history-buffer';
 import { useReplayEngine } from '@/lib/data/replay-engine';
 import { useKeyboardShortcuts } from '@/lib/hooks/useKeyboardShortcuts';
+import { useAISStream } from '@/lib/data/hooks/useAISStream';
+import { useURLState } from '@/lib/hooks/useURLState';
+import { useAdaptiveSound } from '@/lib/hooks/useAdaptiveSound';
 import { triggerNarration } from '@/lib/ai/narrate';
 
 const GlobeCanvas = dynamic(
@@ -37,6 +40,9 @@ export default function OverviewPage() {
   useHistoryBuffer();
   useReplayEngine();
   useKeyboardShortcuts();
+  useAISStream();
+  useURLState();
+  useAdaptiveSound();
 
   // Trigger AI narration on mount and every 30s
   useEffect(() => {
